@@ -1238,6 +1238,15 @@ const App: React.FC = () => {
                             </button>
                         </div>
                     </div>
+
+                    <div className="text-center pt-6">
+                      <a
+                        href="mailto:derek.bobola@gmail.com"
+                        className="text-neutral-500 hover:text-white text-[10px] font-bold uppercase tracking-widest transition-colors"
+                      >
+                        Contact Us
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
