@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Square, GameState, Theme, PrizeDistribution } from './types';
 import { ICONS } from './constants';
-import { createCheckoutSession, POOL_FEE } from './services/stripeService';
+const POOL_FEE = 5;
+const GUMROAD_LINK = 'https://6702043901238.gumroad.com/l/pkgoz';
 
 const DEFAULT_PIN = "1234";
 
@@ -209,17 +210,15 @@ const App: React.FC = () => {
     playSound('pop');
   };
 
-  const handlePayment = async () => {
-    setIsProcessingPayment(true);
-    setPaymentError(null);
+  const handlePayment = () => {
+    window.open(GUMROAD_LINK, '_blank');
+  };
 
-    try {
-      await createCheckoutSession(gameState.poolCode);
-    } catch (error) {
-      console.error('Payment error:', error);
-      setPaymentError('Failed to start checkout. Please try again.');
-      setIsProcessingPayment(false);
-    }
+  const handleActivatePool = () => {
+    setGameState(p => ({ ...p, isPaidPool: true, isInitialized: true }));
+    setSessionAuth({ role: 'admin' });
+    playSound('win');
+    setLoginView('choice');
   };
 
   const handleSquareClick = (row: number, col: number) => {
@@ -556,32 +555,25 @@ const App: React.FC = () => {
                   </div>
                 </div>
 
-                {paymentError && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6 text-center">
-                    <p className="text-red-400 text-sm font-bold">{paymentError}</p>
-                  </div>
-                )}
+                <div className="space-y-3">
+                  <button
+                    onClick={handlePayment}
+                    className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest text-sm flex items-center justify-center space-x-3"
+                  >
+                    <span>Pay ${POOL_FEE}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                  </button>
 
-                <button
-                  onClick={handlePayment}
-                  disabled={isProcessingPayment}
-                  className={`w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest text-sm flex items-center justify-center space-x-3 ${isProcessingPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {isProcessingPayment ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <ICONS.Lock className="w-4 h-4" />
-                      <span>Pay ${POOL_FEE} & Activate</span>
-                    </>
-                  )}
-                </button>
+                  <button
+                    onClick={handleActivatePool}
+                    className="w-full py-4 bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-emerald-500/50 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-sm flex items-center justify-center space-x-3"
+                  >
+                    <span>I've Paid – Activate Pool</span>
+                  </button>
+                </div>
 
                 <p className="text-center text-neutral-600 text-[10px] font-bold uppercase tracking-widest mt-4">
-                  Secure payment via Stripe
+                  Secure payment via Gumroad
                 </p>
 
                 <button
