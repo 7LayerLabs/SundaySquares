@@ -2,6 +2,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Square, GameState, Theme, PrizeDistribution } from './types';
 import { ICONS } from './constants';
+import { createPool as savePoolToDB, updatePool } from './services/instantdb';
+import { OwnerDashboard, OWNER_PIN } from './components/OwnerDashboard';
+
 const POOL_FEE = 5;
 const GUMROAD_LINK = 'https://6702043901238.gumroad.com/l/pkgoz';
 
@@ -85,6 +88,7 @@ const App: React.FC = () => {
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
   const [dashboardTab, setDashboardTab] = useState<'ledger' | 'settings' | 'data'>('ledger');
   const [confirmingAction, setConfirmingAction] = useState<'reset' | 'clear' | null>(null);
+  const [isOwnerDashboardOpen, setIsOwnerDashboardOpen] = useState(false);
 
   const audioCtx = useRef<AudioContext | null>(null);
 
@@ -175,8 +179,33 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Sync pool stats to InstantDB when squares change
+  useEffect(() => {
+    if (!gameState.isPaidPool || !gameState.poolCode) return;
+
+    const squares = Object.values(gameState.squares);
+    const squaresClaimed = squares.filter(s => s.owner).length;
+    const squaresPaid = squares.filter(s => s.isPaid).length;
+    const totalPot = squaresPaid * gameState.paymentSettings.pricePerSquare;
+
+    updatePool(gameState.poolCode, {
+      squaresClaimed,
+      squaresPaid,
+      totalPot,
+      pricePerSquare: gameState.paymentSettings.pricePerSquare,
+      isLocked: gameState.isLocked,
+    }).catch(err => console.error('Failed to sync pool stats:', err));
+  }, [gameState.squares, gameState.isLocked, gameState.paymentSettings.pricePerSquare, gameState.isPaidPool, gameState.poolCode]);
+
   const handleLogin = (val: string) => {
     const input = val.trim().toUpperCase();
+
+    // Owner dashboard access
+    if (input === OWNER_PIN) {
+      setIsOwnerDashboardOpen(true);
+      setLoginInput('');
+      return;
+    }
     if (input === gameState.adminPin) {
       setSessionAuth({ role: 'admin' });
       setGameState(p => ({ ...p, isInitialized: true }));
@@ -215,7 +244,7 @@ const App: React.FC = () => {
     window.open(GUMROAD_LINK, '_blank');
   };
 
-  const handleActivatePool = () => {
+  const handleActivatePool = async () => {
     // Validate Gumroad license key format (XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)
     const keyPattern = /^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/i;
     if (!keyPattern.test(licenseKey.trim())) {
@@ -224,6 +253,19 @@ const App: React.FC = () => {
       return;
     }
     setPaymentError(null);
+
+    // Save pool to InstantDB
+    try {
+      await savePoolToDB({
+        poolCode: gameState.poolCode,
+        title: gameState.title,
+        licenseKey: licenseKey.trim(),
+        pricePerSquare: gameState.paymentSettings.pricePerSquare,
+      });
+    } catch (err) {
+      console.error('Failed to save pool to DB:', err);
+    }
+
     setGameState(p => ({ ...p, isPaidPool: true, isInitialized: true }));
     setSessionAuth({ role: 'admin' });
     playSound('win');
@@ -430,6 +472,10 @@ const App: React.FC = () => {
     return (
       <div className={`min-h-screen ${styles.bg} flex items-center justify-center p-4 relative overflow-y-auto font-sans`}>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.05),transparent)] pointer-events-none"></div>
+
+        {isOwnerDashboardOpen && (
+          <OwnerDashboard onClose={() => setIsOwnerDashboardOpen(false)} />
+        )}
 
         <div className="w-full max-w-3xl animate-in fade-in zoom-in duration-500 py-6">
           <div className="text-center mb-6">
