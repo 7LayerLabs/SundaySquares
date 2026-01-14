@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [createData, setCreateData] = useState({ title: 'Super Bowl LIX Pool', pin: '' });
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [licenseKey, setLicenseKey] = useState('');
   
   const [pastSquares, setPastSquares] = useState<Record<string, Square>[]>([]);
   const [editingSquare, setEditingSquare] = useState<string | null>(null);
@@ -215,6 +216,14 @@ const App: React.FC = () => {
   };
 
   const handleActivatePool = () => {
+    // Validate Gumroad license key format (XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)
+    const keyPattern = /^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/i;
+    if (!keyPattern.test(licenseKey.trim())) {
+      setPaymentError('Please enter a valid license key from your Gumroad receipt.');
+      playSound('error');
+      return;
+    }
+    setPaymentError(null);
     setGameState(p => ({ ...p, isPaidPool: true, isInitialized: true }));
     setSessionAuth({ role: 'admin' });
     playSound('win');
@@ -560,15 +569,33 @@ const App: React.FC = () => {
                     onClick={handlePayment}
                     className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl transition-all shadow-xl uppercase tracking-widest text-sm flex items-center justify-center space-x-3"
                   >
-                    <span>Pay ${POOL_FEE}</span>
+                    <span>Step 1: Pay ${POOL_FEE}</span>
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                   </button>
 
+                  <div className="pt-2">
+                    <label className="text-neutral-400 text-[10px] font-bold uppercase tracking-widest mb-2 block">Step 2: Enter License Key from Receipt</label>
+                    <input
+                      type="text"
+                      placeholder="XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"
+                      value={licenseKey}
+                      onChange={e => setLicenseKey(e.target.value.toUpperCase())}
+                      className="w-full bg-black/40 border-2 border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-white text-center tracking-wider outline-none focus:border-emerald-500 placeholder-neutral-700 transition-all"
+                    />
+                  </div>
+
+                  {paymentError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+                      <p className="text-red-400 text-xs font-bold">{paymentError}</p>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleActivatePool}
-                    className="w-full py-4 bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-emerald-500/50 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-sm flex items-center justify-center space-x-3"
+                    disabled={!licenseKey.trim()}
+                    className={`w-full py-4 bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-emerald-500/50 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-sm flex items-center justify-center space-x-3 ${!licenseKey.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <span>I've Paid – Activate Pool</span>
+                    <span>Activate Pool</span>
                   </button>
                 </div>
 
