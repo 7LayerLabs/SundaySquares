@@ -664,7 +664,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen ${styles.bg} ${styles.textPrimary} flex flex-col font-sans overflow-hidden relative transition-colors duration-500`}>
+    <div className={`min-h-screen ${styles.bg} ${styles.textPrimary} flex flex-col font-sans relative transition-colors duration-500`}>
       {isCopied && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold shadow-2xl flex items-center space-x-3 animate-in fade-in slide-in-from-top-4 duration-300">
           <ICONS.Check className="w-5 h-5" />
