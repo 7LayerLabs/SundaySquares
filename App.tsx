@@ -600,7 +600,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-neutral-400 text-sm font-bold uppercase tracking-widest">Pool Code</span>
-                    <span className="text-emerald-400 font-black tracking-wider">{gameState.poolCode}</span>
+                    <span className="text-neutral-600 font-black tracking-wider">Revealed after payment</span>
                   </div>
                   <div className="border-t border-white/10 pt-4 mt-4">
                     <div className="flex items-center justify-between">
