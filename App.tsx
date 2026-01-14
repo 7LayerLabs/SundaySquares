@@ -589,7 +589,7 @@ const App: React.FC = () => {
                   <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
                     <ICONS.Trophy className="w-8 h-8 text-emerald-500" />
                   </div>
-                  <h2 className="text-2xl font-black text-white uppercase tracking-tight italic mb-2">Activate Your Pool</h2>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-tight italic mb-2">Unlock Your Squares</h2>
                   <p className="text-neutral-500 text-sm">One-time fee to host your squares pool</p>
                 </div>
 
