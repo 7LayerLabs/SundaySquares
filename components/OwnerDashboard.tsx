@@ -1,7 +1,7 @@
 import React from 'react';
 import { db } from '../services/instantdb';
 
-const OWNER_PIN = '7777'; // Change this to your secret owner PIN
+const OWNER_PIN = '0256'; // Change this to your secret owner PIN
 
 export const OwnerDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { isLoading, error, data } = db.useQuery({ pools: {} });
