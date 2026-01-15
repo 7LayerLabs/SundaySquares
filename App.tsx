@@ -772,8 +772,8 @@ const App: React.FC = () => {
 
         <section className={`p-4 md:p-8 flex flex-col items-center ${styles.bg} relative transition-colors duration-500 pb-20`}>
           {activeWinner && (
-            <div className="absolute top-8 z-30 bg-yellow-500 text-neutral-950 px-8 py-3 rounded-full font-black text-lg md:text-2xl flex items-center space-x-4 shadow-[0_0_50px_rgba(234,179,8,0.6)] animate-bounce border-4 border-white/20">
-              <ICONS.Trophy className="w-6 h-6 md:w-8 md:h-8" />
+            <div className="fixed bottom-8 left-8 z-30 bg-yellow-500 text-neutral-950 px-6 py-3 rounded-full font-black text-sm md:text-lg flex items-center space-x-3 shadow-[0_0_50px_rgba(234,179,8,0.6)] animate-bounce border-4 border-white/20">
+              <ICONS.Trophy className="w-5 h-5 md:w-6 md:h-6" />
               <span>WINNER: {activeWinner.owner}</span>
             </div>
           )}
