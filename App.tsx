@@ -664,7 +664,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen ${styles.bg} ${styles.textPrimary} flex flex-col font-sans relative transition-colors duration-500`}>
+    <div className={`min-h-screen ${styles.bg} ${styles.textPrimary} font-sans relative transition-colors duration-500 overflow-y-auto`}>
       {isCopied && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold shadow-2xl flex items-center space-x-3 animate-in fade-in slide-in-from-top-4 duration-300">
           <ICONS.Check className="w-5 h-5" />
@@ -712,7 +712,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col md:flex-row relative min-h-0">
+      <main className="flex flex-col md:flex-row relative">
         <aside className={`fixed inset-y-0 left-0 w-80 ${styles.sidebarBg} border-r border-white/5 p-6 space-y-6 z-50 transition-all transform md:relative md:translate-x-0 overflow-y-auto ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <section className="space-y-4">
             <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Settings</h3>
@@ -770,7 +770,7 @@ const App: React.FC = () => {
           </section>
         </aside>
 
-        <section className={`flex-1 p-4 md:p-8 flex flex-col items-center ${styles.bg} overflow-y-auto relative transition-colors duration-500`}>
+        <section className={`p-4 md:p-8 flex flex-col items-center ${styles.bg} relative transition-colors duration-500 pb-20`}>
           {activeWinner && (
             <div className="absolute top-8 z-30 bg-yellow-500 text-neutral-950 px-8 py-3 rounded-full font-black text-lg md:text-2xl flex items-center space-x-4 shadow-[0_0_50px_rgba(234,179,8,0.6)] animate-bounce border-4 border-white/20">
               <ICONS.Trophy className="w-6 h-6 md:w-8 md:h-8" />
