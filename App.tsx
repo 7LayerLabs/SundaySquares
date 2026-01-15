@@ -737,13 +737,31 @@ const App: React.FC = () => {
           {isAdmin && (
             <section className="space-y-3 p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
               <h3 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Admin Controls</h3>
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-[10px] text-red-400 font-bold uppercase">Home Team</label>
+                  <input
+                    type="text"
+                    className="w-full bg-black/40 border border-red-500/30 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-red-500"
+                    value={gameState.homeTeam}
+                    onChange={e => setGameState(p => ({ ...p, homeTeam: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] text-blue-400 font-bold uppercase">Away Team</label>
+                  <input
+                    type="text"
+                    className="w-full bg-black/40 border border-blue-500/30 rounded-lg px-3 py-2 text-sm font-bold text-white outline-none focus:border-blue-500"
+                    value={gameState.awayTeam}
+                    onChange={e => setGameState(p => ({ ...p, awayTeam: e.target.value }))}
+                  />
+                </div>
                 <button onClick={lockGridEntries} className={`w-full py-2 px-4 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 transition-all ${gameState.isGridLocked ? 'bg-red-500 text-white' : 'bg-neutral-800 text-neutral-400'}`}>
                   {gameState.isGridLocked ? <ICONS.Lock className="w-3.5 h-3.5" /> : <ICONS.Unlock className="w-3.5 h-3.5" />}
                   <span>{gameState.isGridLocked ? 'Grid Locked' : 'Lock Grid'}</span>
                 </button>
                 <button onClick={randomizeNumbers} disabled={!gameState.isGridLocked} className={`w-full py-2 px-4 rounded-lg font-bold text-xs flex items-center justify-center space-x-2 shadow-lg transition-all ${!gameState.isGridLocked ? 'bg-neutral-800 text-neutral-600' : 'bg-emerald-600 hover:bg-emerald-500 text-white active:scale-95'}`}>
-                  <ICONS.Dice className="w-3.5 h-3.5" /> 
+                  <ICONS.Dice className="w-3.5 h-3.5" />
                   <span>{gameState.isLocked ? 'Re-Roll Numbers' : 'Roll Numbers'}</span>
                 </button>
               </div>
