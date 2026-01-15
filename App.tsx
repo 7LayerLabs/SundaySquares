@@ -694,6 +694,11 @@ const App: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2 md:space-x-4">
+          <Tooltip text="Print grid" position="bottom">
+            <button onClick={() => window.print()} className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all border border-white/10">
+              <ICONS.Print className="w-4 h-4" />
+            </button>
+          </Tooltip>
           {isAdmin && (
             <button onClick={() => setIsAdminDashboardOpen(true)} className="flex items-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition-all border border-white/10">
               <ICONS.Code className="w-4 h-4" />
