@@ -753,14 +753,14 @@ const App: React.FC = () => {
           <section className="space-y-3">
             <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Quarter Winners</h3>
             <div className="space-y-2">
-              {[1, 2, 3].map((num) => (
-                <div key={num} className="bg-black/20 border border-white/5 rounded-lg p-3 flex items-center justify-between group">
+              {['q1', 'q2', 'q3', 'final'].map((quarter) => (
+                <div key={quarter} className="bg-black/20 border border-white/5 rounded-lg p-3 flex items-center justify-between group">
                   <div className="min-w-0">
-                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-tight">Q{num}</p>
-                    <p className="text-sm font-bold text-white truncate">{gameState.quarterWinners[`q${num}` as keyof typeof gameState.quarterWinners] || '---'}</p>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-tight">{quarter === 'final' ? 'Final' : quarter.toUpperCase()}</p>
+                    <p className="text-sm font-bold text-white truncate">{gameState.quarterWinners[quarter as keyof typeof gameState.quarterWinners] || '---'}</p>
                   </div>
-                  {isAdmin && activeWinner && !gameState.quarterWinners[`q${num}` as keyof typeof gameState.quarterWinners] && (
-                    <button onClick={() => saveQuarterWinner(`q${num}` as any)} className="p-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 rounded transition-colors opacity-0 group-hover:opacity-100">
+                  {isAdmin && activeWinner && !gameState.quarterWinners[quarter as keyof typeof gameState.quarterWinners] && (
+                    <button onClick={() => saveQuarterWinner(quarter as any)} className="p-1.5 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 rounded transition-colors opacity-0 group-hover:opacity-100">
                       <ICONS.Check className="w-4 h-4" />
                     </button>
                   )}
@@ -768,6 +768,22 @@ const App: React.FC = () => {
               ))}
             </div>
           </section>
+
+          {gameState.isLocked && (
+            <section className="space-y-3">
+              <h3 className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Live Score</h3>
+              <div className="bg-black/20 border border-white/5 rounded-lg p-4 space-y-3">
+                <div>
+                  <label className={`text-[10px] text-red-400 uppercase font-bold mb-1 block`}>{gameState.homeTeam}</label>
+                  <input type="number" placeholder="0" className="w-full bg-black/40 border border-red-500/30 rounded-lg px-3 py-2 text-xl font-black text-center text-white outline-none" value={gameState.homeScore} onChange={e => isAdmin && setGameState(p => ({ ...p, homeScore: e.target.value }))} readOnly={!isAdmin} />
+                </div>
+                <div>
+                  <label className={`text-[10px] text-blue-400 uppercase font-bold mb-1 block`}>{gameState.awayTeam}</label>
+                  <input type="number" placeholder="0" className="w-full bg-black/40 border border-blue-500/30 rounded-lg px-3 py-2 text-xl font-black text-center text-white outline-none" value={gameState.awayScore} onChange={e => isAdmin && setGameState(p => ({ ...p, awayScore: e.target.value }))} readOnly={!isAdmin} />
+                </div>
+              </div>
+            </section>
+          )}
         </aside>
 
         <section className={`p-4 md:p-8 flex flex-col items-center ${styles.bg} relative transition-colors duration-500 pb-40`}>
@@ -898,19 +914,7 @@ const App: React.FC = () => {
              </div>
           </div>
 
-          {gameState.isLocked && (
-            <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-40 ${styles.sidebarBg}/80 backdrop-blur-xl border border-white/10 p-4 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center space-x-6 md:space-x-12 animate-in slide-in-from-bottom-8 duration-500`}>
-              <div className="text-center group">
-                <label className={`text-[10px] ${styles.homeColor} uppercase font-black mb-1 block tracking-widest`}>{gameState.homeTeam}</label>
-                <input type="number" placeholder="0" className={`w-16 md:w-24 bg-black/40 border-2 ${styles.isRetro ? 'border-red-500/80 rounded-none' : 'border-red-500/30 rounded-2xl'} px-2 py-3 text-2xl md:text-4xl font-black text-center text-white outline-none`} value={gameState.homeScore} onChange={e => isAdmin && setGameState(p => ({ ...p, homeScore: e.target.value }))} readOnly={!isAdmin} />
-              </div>
-              <div className="text-center group">
-                <label className={`text-[10px] ${styles.awayColor} uppercase font-black mb-1 block tracking-widest`}>{gameState.awayTeam}</label>
-                <input type="number" placeholder="0" className={`w-16 md:w-24 bg-black/40 border-2 ${styles.isRetro ? 'border-blue-500/80 rounded-none' : 'border-blue-500/30 rounded-2xl'} px-2 py-3 text-2xl md:text-4xl font-black text-center text-white outline-none`} value={gameState.awayScore} onChange={e => isAdmin && setGameState(p => ({ ...p, awayScore: e.target.value }))} readOnly={!isAdmin} />
-              </div>
-            </div>
-          )}
-        </section>
+                  </section>
       </main>
 
       {editingSquare && (
