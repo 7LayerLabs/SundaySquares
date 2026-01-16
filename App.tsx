@@ -265,7 +265,7 @@ const App: React.FC = () => {
   };
 
   const handleActivatePool = async () => {
-    // Validate Gumroad license key format (XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)
+    // Basic format validation first
     const keyPattern = /^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/i;
     if (!keyPattern.test(licenseKey.trim())) {
       track(EventName.VALIDATION_ERROR, {
@@ -277,9 +277,58 @@ const App: React.FC = () => {
       playSound('error');
       return;
     }
-    setPaymentError(null);
 
-    // Save pool to InstantDB
+    setPaymentError(null);
+    setIsProcessingPayment(true);
+
+    // Verify license key with Gumroad API
+    try {
+      const response = await fetch('/api/verify-license', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ licenseKey: licenseKey.trim() }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        track(EventName.VALIDATION_ERROR, {
+          error_message: result.error || 'Invalid license key',
+          error_source: 'handleActivatePool',
+          pool_code: gameState.poolCode,
+        });
+        setPaymentError(result.error || 'Invalid license key. Please check and try again.');
+        setIsProcessingPayment(false);
+        playSound('error');
+        return;
+      }
+
+      // Check if license was refunded or chargebacked
+      if (result.purchase?.refunded || result.purchase?.chargebacked) {
+        track(EventName.VALIDATION_ERROR, {
+          error_message: 'License was refunded or chargebacked',
+          error_source: 'handleActivatePool',
+          pool_code: gameState.poolCode,
+        });
+        setPaymentError('This license key is no longer valid (refunded or chargebacked).');
+        setIsProcessingPayment(false);
+        playSound('error');
+        return;
+      }
+    } catch (err) {
+      console.error('License verification failed:', err);
+      track(EventName.VALIDATION_ERROR, {
+        error_message: String(err),
+        error_source: 'handleActivatePool',
+        pool_code: gameState.poolCode,
+      });
+      setPaymentError('Failed to verify license. Please try again.');
+      setIsProcessingPayment(false);
+      playSound('error');
+      return;
+    }
+
+    // License verified - save pool to InstantDB
     try {
       await savePoolToDB({
         poolCode: gameState.poolCode,
@@ -319,6 +368,7 @@ const App: React.FC = () => {
 
     setGameState(p => ({ ...p, isPaidPool: true, isInitialized: true }));
     setSessionAuth({ role: 'admin' });
+    setIsProcessingPayment(false);
     playSound('win');
     setLoginView('choice');
   };
@@ -778,10 +828,10 @@ const App: React.FC = () => {
 
                   <button
                     onClick={handleActivatePool}
-                    disabled={!licenseKey.trim()}
-                    className={`w-full py-4 bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-emerald-500/50 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-sm flex items-center justify-center space-x-3 ${!licenseKey.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={!licenseKey.trim() || isProcessingPayment}
+                    className={`w-full py-4 bg-white/5 hover:bg-white/10 border-2 border-white/10 hover:border-emerald-500/50 text-white font-black rounded-2xl transition-all uppercase tracking-widest text-sm flex items-center justify-center space-x-3 ${!licenseKey.trim() || isProcessingPayment ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <span>Activate Pool</span>
+                    <span>{isProcessingPayment ? 'Verifying License...' : 'Activate Pool'}</span>
                   </button>
                 </div>
 
