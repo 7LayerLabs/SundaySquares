@@ -4,6 +4,7 @@ import { Square, GameState, Theme, PrizeDistribution } from './types';
 import { ICONS } from './constants';
 import { createPool as savePoolToDB, updatePool } from './services/instantdb';
 import { OwnerDashboard, OWNER_PIN } from './components/OwnerDashboard';
+import { track, identify, group, reset, EventName } from './services/analytics';
 
 const POOL_FEE = 5;
 const GUMROAD_LINK = 'https://6702043901238.gumroad.com/l/pkgoz';
@@ -146,6 +147,9 @@ const App: React.FC = () => {
     if (hash && hash.startsWith('#code=')) {
       const code = hash.split('#code=')[1];
       if (code) {
+        track(EventName.DEEP_LINK_USED, {
+          pool_code: code.toUpperCase(),
+        });
         setLoginInput(code.toUpperCase());
         setLoginView('join');
       }
@@ -194,26 +198,53 @@ const App: React.FC = () => {
       totalPot,
       pricePerSquare: gameState.paymentSettings.pricePerSquare,
       isLocked: gameState.isLocked,
-    }).catch(err => console.error('Failed to sync pool stats:', err));
+    }).catch(err => {
+      console.error('Failed to sync pool stats:', err);
+      track(EventName.DB_SYNC_ERROR, {
+        error_message: String(err),
+        error_source: 'poolStatsSync',
+        pool_code: gameState.poolCode,
+      });
+    });
   }, [gameState.squares, gameState.isLocked, gameState.paymentSettings.pricePerSquare, gameState.isPaidPool, gameState.poolCode]);
 
   const handleLogin = (val: string) => {
     const input = val.trim().toUpperCase();
 
+    track(EventName.LOGIN_ATTEMPTED, {
+      login_method: input.length === 4 ? 'pin' : 'code',
+      pool_code: gameState.poolCode,
+    });
+
     // Owner dashboard access
     if (input === OWNER_PIN) {
+      track(EventName.LOGIN_SUCCESS, { login_type: 'owner' });
       setIsOwnerDashboardOpen(true);
       setLoginInput('');
       return;
     }
     if (input === gameState.adminPin) {
+      track(EventName.LOGIN_SUCCESS, {
+        login_type: 'admin',
+        pool_code: gameState.poolCode,
+      });
+      identify(`admin_${gameState.poolCode}`, { role: 'admin' });
+      group(gameState.poolCode, { pool_code: gameState.poolCode, pool_title: gameState.title });
       setSessionAuth({ role: 'admin' });
       setGameState(p => ({ ...p, isInitialized: true }));
       playSound('win');
     } else if (input === gameState.poolCode.toUpperCase()) {
+      track(EventName.LOGIN_SUCCESS, {
+        login_type: 'player',
+        pool_code: gameState.poolCode,
+      });
+      group(gameState.poolCode, { pool_code: gameState.poolCode, pool_title: gameState.title });
       setSessionAuth({ role: 'player' });
       playSound('pop');
     } else {
+      track(EventName.LOGIN_FAILED, {
+        login_method: input.length === 4 ? 'pin' : 'code',
+      });
       playSound('error');
       alert("Invalid Pool Code or Admin PIN.");
     }
@@ -221,9 +252,21 @@ const App: React.FC = () => {
   };
 
   const handleCreatePool = () => {
-    if (createData.pin.length !== 4) return alert("Admin PIN must be exactly 4 digits.");
+    if (createData.pin.length !== 4) {
+      track(EventName.VALIDATION_ERROR, {
+        error_message: 'Admin PIN must be exactly 4 digits',
+        error_source: 'handleCreatePool',
+      });
+      return alert("Admin PIN must be exactly 4 digits.");
+    }
     const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
     const newPoolCode = generateCode();
+
+    track(EventName.POOL_CREATED, {
+      pool_code: newPoolCode,
+      pool_title: createData.title,
+      price_per_square: parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+    });
 
     // Save pool data but don't activate yet - need payment first
     setGameState(p => ({
@@ -241,6 +284,10 @@ const App: React.FC = () => {
   };
 
   const handlePayment = () => {
+    track(EventName.POOL_PAYMENT_INITIATED, {
+      pool_code: gameState.poolCode,
+      pool_title: gameState.title,
+    });
     window.open(GUMROAD_LINK, '_blank');
   };
 
@@ -248,6 +295,11 @@ const App: React.FC = () => {
     // Validate Gumroad license key format (XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX)
     const keyPattern = /^[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}-[A-F0-9]{8}$/i;
     if (!keyPattern.test(licenseKey.trim())) {
+      track(EventName.VALIDATION_ERROR, {
+        error_message: 'Invalid license key format',
+        error_source: 'handleActivatePool',
+        pool_code: gameState.poolCode,
+      });
       setPaymentError('Please enter a valid license key from your Gumroad receipt.');
       playSound('error');
       return;
@@ -262,9 +314,35 @@ const App: React.FC = () => {
         licenseKey: licenseKey.trim(),
         pricePerSquare: gameState.paymentSettings.pricePerSquare,
       });
+      track(EventName.DB_SYNC_SUCCESS, {
+        pool_code: gameState.poolCode,
+        error_source: 'handleActivatePool',
+      });
     } catch (err) {
       console.error('Failed to save pool to DB:', err);
+      track(EventName.DB_SYNC_ERROR, {
+        error_message: String(err),
+        error_source: 'handleActivatePool',
+        pool_code: gameState.poolCode,
+      });
     }
+
+    track(EventName.POOL_ACTIVATED, {
+      pool_code: gameState.poolCode,
+      pool_title: gameState.title,
+      price_per_square: parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+    });
+    track(EventName.POOL_PAYMENT_COMPLETED, {
+      pool_code: gameState.poolCode,
+    });
+
+    identify(`admin_${gameState.poolCode}`, { role: 'admin', pools_created: 1 });
+    group(gameState.poolCode, {
+      pool_code: gameState.poolCode,
+      pool_title: gameState.title,
+      is_paid: true,
+      price_per_square: parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+    });
 
     setGameState(p => ({ ...p, isPaidPool: true, isInitialized: true }));
     setSessionAuth({ role: 'admin' });
@@ -288,14 +366,44 @@ const App: React.FC = () => {
   const updateSquareOwner = (owner: string, forceStatus?: { isPaid?: boolean, isPending?: boolean }) => {
     if (!editingSquare) return;
     const isAdmin = sessionAuth.role === 'admin';
-    if (!owner.trim()) return alert("Please enter a name.");
-    if (!selectedPaymentMethod && !isAdmin) return alert("Please select a payment method.");
-    
+    if (!owner.trim()) {
+      track(EventName.VALIDATION_ERROR, {
+        error_message: 'Name required',
+        error_source: 'updateSquareOwner',
+      });
+      return alert("Please enter a name.");
+    }
+    if (!selectedPaymentMethod && !isAdmin) {
+      track(EventName.VALIDATION_ERROR, {
+        error_message: 'Payment method required',
+        error_source: 'updateSquareOwner',
+      });
+      return alert("Please select a payment method.");
+    }
+
     const [row, col] = editingSquare.split('-').map(Number);
     const isPaid = forceStatus?.isPaid ?? isPaidLocal;
     const isPending = forceStatus?.isPending ?? isPendingLocal;
 
+    track(EventName.SQUARE_CLAIMED, {
+      square_id: editingSquare,
+      square_row: row,
+      square_col: col,
+      owner_name: owner.toUpperCase(),
+      payment_method: selectedPaymentMethod || undefined,
+      is_paid_square: isPaid,
+      is_pending_square: isPending,
+      pool_code: gameState.poolCode,
+      price_per_square: parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+    });
+
     if (isPaid) {
+        track(EventName.PAYMENT_VERIFIED, {
+          square_id: editingSquare,
+          owner_name: owner.toUpperCase(),
+          payment_method: selectedPaymentMethod || undefined,
+          pool_code: gameState.poolCode,
+        });
         setShowPaymentToast(true);
         setTimeout(() => setShowPaymentToast(false), 2500);
         playSound('win');
@@ -308,11 +416,11 @@ const App: React.FC = () => {
       ...prev,
       squares: {
         ...prev.squares,
-        [editingSquare!]: { 
-            id: editingSquare!, 
-            owner: owner.toUpperCase(), 
-            row, 
-            col, 
+        [editingSquare!]: {
+            id: editingSquare!,
+            owner: owner.toUpperCase(),
+            row,
+            col,
             isPaid,
             isPending,
             paymentMethod: selectedPaymentMethod || undefined
@@ -325,13 +433,18 @@ const App: React.FC = () => {
 
   const lockGridEntries = () => {
     if (sessionAuth.role !== 'admin') return;
+    const newLockedState = !gameState.isGridLocked;
+    track(newLockedState ? EventName.GRID_LOCKED : EventName.GRID_UNLOCKED, {
+      pool_code: gameState.poolCode,
+      squares_claimed: Object.keys(gameState.squares).length,
+    });
     setGameState(prev => ({ ...prev, isGridLocked: !prev.isGridLocked }));
     playSound('pop');
   };
 
   const randomizeNumbers = () => {
     if (sessionAuth.role !== 'admin') return;
-    
+
     const shuffle = (array: number[]) => {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -342,7 +455,14 @@ const App: React.FC = () => {
     };
 
     const baseArr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    
+
+    track(EventName.NUMBERS_RANDOMIZED, {
+      pool_code: gameState.poolCode,
+      squares_claimed: Object.keys(gameState.squares).length,
+      home_team: gameState.homeTeam,
+      away_team: gameState.awayTeam,
+    });
+
     setGameState(prev => ({
       ...prev,
       homeNumbers: shuffle(baseArr),
@@ -356,6 +476,12 @@ const App: React.FC = () => {
   const confirmDangerAction = () => {
     if (!confirmingAction) return;
     if (confirmingAction === 'reset') {
+      track(EventName.POOL_RESET, {
+        pool_code: gameState.poolCode,
+        squares_claimed: Object.keys(gameState.squares).length,
+        total_pot: Object.values(gameState.squares).length * parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+      });
+      reset(); // Reset analytics identity
       setGameState(prev => ({
         ...prev,
         homeNumbers: null,
@@ -372,6 +498,10 @@ const App: React.FC = () => {
       setSessionAuth({ role: null });
       setLoginView('choice');
     } else if (confirmingAction === 'clear') {
+      track(EventName.SQUARES_CLEARED, {
+        pool_code: gameState.poolCode,
+        squares_claimed: Object.keys(gameState.squares).length,
+      });
       setGameState(p => ({ ...p, squares: {} }));
     }
     setConfirmingAction(null);
@@ -381,6 +511,13 @@ const App: React.FC = () => {
   const shareGrid = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#code=${gameState.poolCode}`;
     await navigator.clipboard.writeText(shareUrl);
+    track(EventName.POOL_SHARED, {
+      pool_code: gameState.poolCode,
+      squares_claimed: Object.keys(gameState.squares).length,
+    });
+    track(EventName.INVITE_LINK_COPIED, {
+      pool_code: gameState.poolCode,
+    });
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -400,6 +537,14 @@ const App: React.FC = () => {
 
   const saveQuarterWinner = (quarter: 'q1' | 'q2' | 'q3') => {
     if (!activeWinner) return;
+    track(EventName.QUARTER_WINNER_SAVED, {
+      quarter,
+      winner_name: activeWinner.owner,
+      home_score: gameState.homeScore,
+      away_score: gameState.awayScore,
+      pool_code: gameState.poolCode,
+      total_pot: Object.keys(gameState.squares).length * parseInt(gameState.paymentSettings?.pricePerSquare || '10'),
+    });
     setGameState(prev => ({
       ...prev,
       quarterWinners: { ...prev.quarterWinners, [quarter]: activeWinner.owner }
@@ -407,8 +552,15 @@ const App: React.FC = () => {
     playSound('win');
   };
 
-  const toggleSound = () => setGameState(prev => ({ ...prev, isSoundEnabled: !prev.isSoundEnabled }));
-  const setTheme = (theme: Theme) => { setGameState(prev => ({ ...prev, theme })); playSound('pop'); };
+  const toggleSound = () => {
+    track(EventName.SOUND_TOGGLED, { sound_enabled: !gameState.isSoundEnabled });
+    setGameState(prev => ({ ...prev, isSoundEnabled: !prev.isSoundEnabled }));
+  };
+  const setTheme = (theme: Theme) => {
+    track(EventName.THEME_CHANGED, { theme, pool_code: gameState.poolCode });
+    setGameState(prev => ({ ...prev, theme }));
+    playSound('pop');
+  };
   
   const updatePaymentSettings = (key: keyof NonNullable<GameState['paymentSettings']>, value: string) => {
     setGameState(prev => ({ ...prev, paymentSettings: { ...prev.paymentSettings, [key]: value } }));
@@ -420,6 +572,10 @@ const App: React.FC = () => {
   };
 
   const exportState = () => {
+    track(EventName.EXPORT_INITIATED, {
+      pool_code: gameState.poolCode,
+      squares_claimed: Object.keys(gameState.squares).length,
+    });
     const blob = new Blob([JSON.stringify(gameState, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -430,7 +586,13 @@ const App: React.FC = () => {
 
   const openPaymentLink = (method: 'venmo' | 'cashapp') => {
     const handle = method === 'venmo' ? gameState.paymentSettings?.venmo : gameState.paymentSettings?.cashApp;
-    if (!handle) return alert(`No ${method} handle configured by admin.`);
+    if (!handle) {
+      track(EventName.ERROR_OCCURRED, {
+        error_message: `No ${method} handle configured`,
+        error_source: 'openPaymentLink',
+      });
+      return alert(`No ${method} handle configured by admin.`);
+    }
     let url = '';
     const price = gameState.paymentSettings?.pricePerSquare || '10';
     if (method === 'venmo') {
@@ -440,6 +602,11 @@ const App: React.FC = () => {
         const cleanHandle = handle.replace('$', '');
         url = `https://cash.app/$${cleanHandle}/${price}`;
     }
+    track(EventName.PAYMENT_LINK_OPENED, {
+      payment_method: method,
+      pool_code: gameState.poolCode,
+      price_per_square: parseInt(price),
+    });
     window.open(url, '_blank');
   };
 
@@ -695,12 +862,12 @@ const App: React.FC = () => {
         
         <div className="flex items-center space-x-2 md:space-x-4">
           <Tooltip text="Print grid" position="bottom">
-            <button onClick={() => window.print()} className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all border border-white/10">
+            <button onClick={() => { track(EventName.PRINT_INITIATED, { pool_code: gameState.poolCode }); window.print(); }} className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-all border border-white/10">
               <ICONS.Print className="w-4 h-4" />
             </button>
           </Tooltip>
           {isAdmin && (
-            <button onClick={() => setIsAdminDashboardOpen(true)} className="flex items-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition-all border border-white/10">
+            <button onClick={() => { track(EventName.DASHBOARD_OPENED, { pool_code: gameState.poolCode }); setIsAdminDashboardOpen(true); }} className="flex items-center space-x-2 bg-neutral-800 hover:bg-neutral-700 text-white px-3 py-2 rounded-lg font-bold text-xs transition-all border border-white/10">
               <ICONS.Code className="w-4 h-4" />
               <span className="hidden sm:inline uppercase tracking-widest">Dashboard</span>
             </button>
@@ -711,7 +878,7 @@ const App: React.FC = () => {
               <span className="hidden sm:inline">Invite Players</span>
             </button>
           </Tooltip>
-          <button onClick={() => setSessionAuth({ role: null })} className="p-2 bg-neutral-800 text-neutral-400 rounded-lg border border-white/5 hover:bg-neutral-700 hover:text-white transition-all">
+          <button onClick={() => { track(EventName.LOGOUT, { pool_code: gameState.poolCode }); reset(); setSessionAuth({ role: null }); }} className="p-2 bg-neutral-800 text-neutral-400 rounded-lg border border-white/5 hover:bg-neutral-700 hover:text-white transition-all">
             <ICONS.Plus className="w-5 h-5 rotate-45" />
           </button>
         </div>
@@ -977,9 +1144,9 @@ const App: React.FC = () => {
                 <label className="text-[10px] text-neutral-500 uppercase font-black block tracking-[0.2em]">Pay with</label>
                 <div className="grid grid-cols-3 gap-3">
                   {PAYMENT_METHODS.map(method => (
-                    <button 
-                      key={method.id} 
-                      onClick={() => setSelectedPaymentMethod(method.id as any)}
+                    <button
+                      key={method.id}
+                      onClick={() => { track(EventName.PAYMENT_METHOD_SELECTED, { payment_method: method.id as any, pool_code: gameState.poolCode }); setSelectedPaymentMethod(method.id as any); }}
                       className={`py-5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center space-y-2 ${selectedPaymentMethod === method.id ? `bg-white/5 border-[${method.color}] text-white shadow-lg` : 'bg-black/20 border-white/5 text-neutral-600'}`}
                       style={{ borderColor: selectedPaymentMethod === method.id ? method.color : undefined }}
                     >
@@ -1035,6 +1202,11 @@ const App: React.FC = () => {
                   </div>
                   <button onClick={() => updateSquareOwner((document.getElementById('owner-input') as HTMLInputElement).value)} className="w-full py-6 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-3xl shadow-2xl uppercase tracking-widest text-sm">Save Changes</button>
                   <button onClick={() => {
+                        track(EventName.SQUARE_DELETED, {
+                          square_id: editingSquare!,
+                          owner_name: gameState.squares[editingSquare!]?.owner,
+                          pool_code: gameState.poolCode,
+                        });
                         const newSquares = { ...gameState.squares };
                         delete newSquares[editingSquare!];
                         setGameState(prev => ({ ...prev, squares: newSquares }));
@@ -1144,8 +1316,14 @@ const App: React.FC = () => {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <button 
+                                                <button
                                                     onClick={() => {
+                                                        track(EventName.PAYMENT_VERIFIED, {
+                                                            square_id: square.id,
+                                                            owner_name: square.owner,
+                                                            payment_method: square.paymentMethod,
+                                                            pool_code: gameState.poolCode,
+                                                        });
                                                         setGameState(prev => ({
                                                             ...prev,
                                                             squares: { ...prev.squares, [square.id]: { ...square, isPaid: true, isPending: false } }
@@ -1228,7 +1406,7 @@ const App: React.FC = () => {
                           <label className="text-[10px] text-neutral-500 font-black uppercase tracking-widest mb-4 block">Invite Code</label>
                           <div className="flex items-center space-x-4">
                             <input readOnly className="flex-1 bg-black/60 border-2 border-white/5 rounded-2xl px-6 py-4 text-2xl font-black text-white italic tracking-[0.3em] uppercase" value={gameState.poolCode} />
-                            <button onClick={() => setGameState(p => ({ ...p, poolCode: Math.random().toString(36).substring(2, 8).toUpperCase() }))} className="p-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl transition-all active:scale-95">
+                            <button onClick={() => { const newCode = Math.random().toString(36).substring(2, 8).toUpperCase(); track(EventName.POOL_CODE_REGENERATED, { pool_code: newCode }); setGameState(p => ({ ...p, poolCode: newCode })); }} className="p-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl transition-all active:scale-95">
                               <ICONS.Refresh className="w-6 h-6" />
                             </button>
                           </div>

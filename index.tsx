@@ -2,6 +2,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { initAnalytics, setupErrorTracking } from './services/analytics';
+
+// Initialize analytics before React renders
+initAnalytics();
+setupErrorTracking();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

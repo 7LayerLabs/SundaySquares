@@ -1,10 +1,28 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { db } from '../services/instantdb';
+import { track, EventName } from '../services/analytics';
 
 const OWNER_PIN = '0256'; // Change this to your secret owner PIN
 
 export const OwnerDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { isLoading, error, data } = db.useQuery({ pools: {} });
+
+  // Track dashboard open on mount
+  useEffect(() => {
+    track(EventName.OWNER_DASHBOARD_OPENED, {
+      timestamp: Date.now(),
+    });
+  }, []);
+
+  // Track errors
+  useEffect(() => {
+    if (error) {
+      track(EventName.DB_SYNC_ERROR, {
+        error_message: String(error),
+        error_source: 'OwnerDashboard',
+      });
+    }
+  }, [error]);
 
   const pools = data?.pools || [];
   const totalPools = pools.length;
