@@ -156,33 +156,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Handle Stripe payment return
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-    const poolCode = urlParams.get('pool');
-
-    if (paymentStatus && poolCode) {
-      // Clean up URL
-      window.history.replaceState({}, '', window.location.pathname);
-
-      if (paymentStatus === 'success') {
-        // Payment successful - activate the pool
-        setGameState(prev => ({
-          ...prev,
-          isPaidPool: true,
-          isInitialized: true
-        }));
-        setSessionAuth({ role: 'admin' });
-        playSound('win');
-      } else if (paymentStatus === 'cancelled') {
-        // Payment cancelled - show payment screen again
-        setLoginView('payment');
-        setPaymentError('Payment was cancelled. Please try again to activate your pool.');
-      }
-    }
-  }, []);
-
   // Sync pool stats to InstantDB when squares change
   useEffect(() => {
     if (!gameState.isPaidPool || !gameState.poolCode) return;
