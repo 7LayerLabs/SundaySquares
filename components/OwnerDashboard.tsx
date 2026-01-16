@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { db } from '../services/instantdb';
 import { track, EventName } from '../services/analytics';
 
-const OWNER_PIN = '0256'; // Change this to your secret owner PIN
+// Owner PIN loaded from environment variable for security
+const OWNER_PIN = import.meta.env.VITE_OWNER_PIN || '';
 
 export const OwnerDashboard: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { isLoading, error, data } = db.useQuery({ pools: {} });
