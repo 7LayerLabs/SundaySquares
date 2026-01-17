@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/sundaysquares", "destination": "/index.html" },
+    { "source": "/sundaysquares/", "destination": "/index.html" },
+    { "source": "/sundaysquares/:path*", "destination": "/:path*" }
+  ]
+}
